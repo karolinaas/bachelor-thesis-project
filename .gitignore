@@ -1,0 +1,6 @@
+.vscode/
+debug/
+build/
+
+CMakePresets.json
+mcux_include.json
