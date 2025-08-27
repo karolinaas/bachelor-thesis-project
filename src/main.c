@@ -9,8 +9,14 @@
 #include <zephyr/drivers/i2s.h>
 #include <zephyr/audio/codec.h>
 #include <string.h>
+#include <math.h>
+#include <stdint.h>
 
 #include "sine.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #define I2S_CODEC_TX DT_ALIAS(i2s_codec_tx)
 
@@ -102,21 +108,29 @@ int main(void)
 		bool started = false;
 
 		while (1) {
-			void *mem_block;
-			uint32_t block_size = BLOCK_SIZE;
-			int i;
+			double duration = 0.1;
+			double amplitude = 1.0;
+			double phase = 0.0;
+			double phase_increment = 2 * M_PI * 440 / SAMPLE_FREQUENCY;
 
-			for (i = 0; i < 2; i++) {
-				/* If not using DMIC, play a sine wave 440Hz */
-				mem_block = (void *)&__16kHz16bit_stereo_sine_pcm;
-				block_size = __16kHz16bit_stereo_sine_pcm_len;
+			uint32_t buflen = SAMPLE_FREQUENCY * duration;
+			uint16_t sine_buf[buflen * 2];
 
-				ret = i2s_buf_write(i2s_dev_codec, mem_block, block_size);
+			for(uint32_t i = 0; i < buflen * 2; i+=2)
+			{
+				sine_buf[i] = amplitude * 32767 * ((sin(phase) + 1) / 2);
+				sine_buf[i + 1] = sine_buf[i];
 
-				if (ret < 0) {
-					printk("Failed to write data: %d\n", ret);
-					break;
-				}
+				phase += phase_increment;
+
+				if (phase >= 2 * M_PI) phase -= 2 * M_PI;
+			}
+
+			ret = i2s_buf_write(i2s_dev_codec, (void*)&sine_buf, buflen * 2);
+
+			if (ret < 0) {
+				printk("Failed to write data: %d\n", ret);
+				break;
 			}
 			if (ret < 0) {
 				printk("error %d\n", ret);
